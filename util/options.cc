@@ -4,6 +4,8 @@
 
 #include "leveldb/options.h"
 
+#include <cstring>
+
 #include "leveldb/comparator.h"
 #include "leveldb/env.h"
 

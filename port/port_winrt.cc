@@ -76,23 +76,30 @@ namespace leveldb {
 			wait_mtx_.Lock();
 			if (waiting_ > 0) {
 				--waiting_;
-
-				// finalize handshake
-				bool ret = ::ReleaseSemaphore(sem1_, 1, NULL);
-				::WaitForSingleObjectEx(sem2_, INFINITE, FALSE);
+				// Finalize the handshake with exactly one waiter. Ignore the
+				// BOOL result: a failure here (invalid handle, semaphore
+				// overflow) would indicate a programming error and there is
+				// no meaningful recovery we can do from this code path.
+				(void)::ReleaseSemaphore(sem1_, 1, NULL);
+				(void)::WaitForSingleObjectEx(sem2_, INFINITE, FALSE);
 			}
 			wait_mtx_.Unlock();
 		}
 
 		void CondVar::SignalAll() {
 			wait_mtx_.Lock();
-			for (long i = 0; i < waiting_; ++i) {
-				::ReleaseSemaphore(sem1_, 1, NULL);
-				while (waiting_ > 0) {
-					--waiting_;
-					::WaitForSingleObjectEx(sem2_, INFINITE, FALSE);
-				}
+			// Snapshot the waiter count up front; the original loop compared
+			// against waiting_ while the body decremented it, so only one
+			// waiter was ever released. Issue one ReleaseSemaphore per
+			// waiter and then drain the acknowledgement side.
+			const long count = waiting_;
+			for (long i = 0; i < count; ++i) {
+				(void)::ReleaseSemaphore(sem1_, 1, NULL);
 			}
+			for (long i = 0; i < count; ++i) {
+				(void)::WaitForSingleObjectEx(sem2_, INFINITE, FALSE);
+			}
+			waiting_ = 0;
 			wait_mtx_.Unlock();
 		}
 

@@ -120,25 +120,31 @@ Status Footer::DecodeFrom(Slice* input) {
 			}
 		}
 		else {
-
-			//find the required compressor
+			// Find the compressor whose ID matches the trailer byte. We must
+			// scan all non-null slots rather than stopping at the first null
+			// one, otherwise a sparsely populated compressors[] array would
+			// make later slots unreachable.
 			Compressor* compressor = nullptr;
 			for (auto& c : dbOptions.compressors) {
-				if (!c || c->uniqueCompressionID == compressionID) {
+				if (c && c->uniqueCompressionID == compressionID) {
 					compressor = c;
 					break;
 				}
 			}
 
-			assert(compressor != nullptr);
+			if (compressor == nullptr) {
+				delete[] buf;
+				return Status::Corruption(
+					"block trailer references an unregistered compressor id");
+			}
 
 			std::string buffer;
-			if (!compressor || !compressor->decompress(data, n, buffer)) {
+			if (!compressor->decompress(data, n, buffer)) {
 				delete[] buf;
 				return Status::Corruption("corrupted compressed block contents");
 			}
 
-			auto ubuf = new char[buffer.size()];
+			char* ubuf = new char[buffer.size()];
 			memcpy(ubuf, buffer.data(), buffer.size());
 			delete[] buf;
 			result->data = Slice(ubuf, buffer.size());

@@ -7,9 +7,6 @@
 
 #include <stddef.h>
 
-#include <memory>
-#include <unordered_map>
-
 namespace leveldb {
 
 class DLLX Cache;
@@ -105,20 +102,26 @@ struct DLLX Options {
   // Default: 16
   int block_restart_interval;
 
-  // Compress blocks using the specified compression algorithm.  This
-  // parameter can be changed dynamically.
+  // Pluggable per-block compressors. See leveldb/compressor.h.
   //
-  // Default: kSnappyCompression, which gives lightweight but fast
-  // compression.
+  // Convention:
+  //   - compressors[0] is the *active writer*. New blocks are fed through
+  //     it. Leave it NULL to write uncompressed blocks.
+  //   - Every non-NULL slot is consulted on reads to find the compressor
+  //     whose uniqueCompressionID matches the trailer of the block being
+  //     read. To open a DB that contains blocks produced by several
+  //     compressors, install each one in some slot (any non-zero index
+  //     works; null slots are skipped).
   //
-  // Typical speeds of kSnappyCompression on an Intel(R) Core(TM)2 2.4GHz:
-  //    ~200-500MB/s compression
-  //    ~400-800MB/s decompression
-  // Note that these speeds are significantly faster than most
-  // persistent storage speeds, and therefore it is typically never
-  // worth switching to kNoCompression.  Even if the input data is
-  // incompressible, the kSnappyCompression implementation will
-  // efficiently detect that and will switch to uncompressed mode.
+  // Ownership: the caller owns these pointers. They must outlive every
+  // DB opened with these options and be deleted afterwards. LevelDB does
+  // not copy or destroy them.
+  //
+  // Threading: compressors are invoked concurrently from background
+  // compaction and flush threads, so each implementation must be
+  // thread-safe for its compress/decompress methods.
+  //
+  // Initialized to all NULL by the default Options constructor.
   Compressor* compressors[256];
 
   // EXPERIMENTAL: If true, append to existing MANIFEST and log files

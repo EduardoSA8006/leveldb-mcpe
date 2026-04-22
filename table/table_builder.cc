@@ -147,24 +147,26 @@ void TableBuilder::WriteBlock(BlockBuilder* block, BlockHandle* handle) {
   Slice raw = block->Finish();
 
   Slice block_contents;
-  auto compressor = r->options.compressors[0];
+  // compressors[0] is the active writer compressor, by convention. Any
+  // additional compressors registered in higher slots are for decompression
+  // of previously written blocks only. See include/leveldb/options.h.
+  Compressor* compressor = r->options.compressors[0];
 
-  // TODO(postrelease): Support more compression options: zlib?
   if (compressor) {
- 		std::string& compressed = r->compressed_output;
-		compressor->compress(raw.data(), raw.size(), compressed);
+    std::string& compressed = r->compressed_output;
+    const bool ok = compressor->compress(raw.data(), raw.size(), compressed);
 
-      if ( compressed.size() < raw.size() - (raw.size() / 8u)) {
-        block_contents = compressed;
-      } else {
-        // Snappy not supported, or compressed less than 12.5%, so just
-        // store uncompressed form
-        block_contents = raw;
-		compressor = nullptr;
-      }
+    if (ok && compressed.size() < raw.size() - (raw.size() / 8u)) {
+      block_contents = compressed;
+    } else {
+      // Either the compressor failed or the block did not shrink by at
+      // least 12.5%. Store the raw bytes and mark the block uncompressed.
+      block_contents = raw;
+      compressor = nullptr;
+    }
+  } else {
+    block_contents = raw;
   }
-  else 
-	  block_contents = raw;
 
   WriteRawBlock(block_contents, compressor, handle);
   r->compressed_output.clear();

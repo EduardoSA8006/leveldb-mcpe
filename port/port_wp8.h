@@ -58,7 +58,8 @@ namespace leveldb {
 			}
 
 			void AssertHeld() {
-				//mutex.
+				// std::mutex does not expose ownership information, so this
+				// is a no-op. Kept for API compatibility with port_posix.h.
 			}
 
 		private:

@@ -32,6 +32,7 @@ TESTS = \
 	db/version_edit_test \
 	db/version_set_test \
 	db/write_batch_test \
+	db/compressor_test \
 	helpers/memenv/memenv_test \
 	table/filter_block_test \
 	util/arena_test \
@@ -371,6 +372,9 @@ $(STATIC_OUTDIR)/version_set_test:db/version_set_test.cc $(STATIC_LIBOBJECTS) $(
 
 $(STATIC_OUTDIR)/write_batch_test:db/write_batch_test.cc $(STATIC_LIBOBJECTS) $(TESTHARNESS)
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) db/write_batch_test.cc $(STATIC_LIBOBJECTS) $(TESTHARNESS) -o $@ $(LIBS)
+
+$(STATIC_OUTDIR)/compressor_test:db/compressor_test.cc $(STATIC_LIBOBJECTS) $(TESTHARNESS)
+	$(CXX) $(LDFLAGS) $(CXXFLAGS) db/compressor_test.cc $(STATIC_LIBOBJECTS) $(TESTHARNESS) -o $@ $(LIBS)
 
 $(STATIC_OUTDIR)/memenv_test:$(STATIC_OUTDIR)/helpers/memenv/memenv_test.o $(STATIC_OUTDIR)/libmemenv.a $(STATIC_OUTDIR)/libleveldb.a $(TESTHARNESS)
 	$(XCRUN) $(CXX) $(LDFLAGS) $(STATIC_OUTDIR)/helpers/memenv/memenv_test.o $(STATIC_OUTDIR)/libmemenv.a $(STATIC_OUTDIR)/libleveldb.a $(TESTHARNESS) -o $@ $(LIBS)

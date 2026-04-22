@@ -389,6 +389,14 @@ leveldb_options_t* leveldb_options_create() {
 }
 
 void leveldb_options_destroy(leveldb_options_t* options) {
+  if (options == nullptr) return;
+  // Free any compressors installed through the C API. Pointers set directly
+  // by C++ callers are not owned by this struct; the C API installs them
+  // via leveldb_options_set_compression, so we have to clean up here.
+  for (auto& c : options->rep.compressors) {
+    delete c;
+    c = nullptr;
+  }
   delete options;
 }
 
@@ -448,9 +456,13 @@ void leveldb_options_set_block_restart_interval(leveldb_options_t* opt, int n) {
 }
 
 void leveldb_options_set_compression(leveldb_options_t* opt, int t) {
-  switch(t) {
+  // Drop any compressor we previously installed before overwriting the slot,
+  // otherwise repeated calls leak the old object.
+  delete opt->rep.compressors[0];
+  opt->rep.compressors[0] = nullptr;
+
+  switch (t) {
     case 0:
-      opt->rep.compressors[0] = nullptr;
       break;
 #ifdef SNAPPY
     case leveldb_snappy_compression:
@@ -459,6 +471,7 @@ void leveldb_options_set_compression(leveldb_options_t* opt, int t) {
 #endif
     case leveldb_zlib_compression:
       opt->rep.compressors[0] = new leveldb::ZlibCompressor();
+      break;
   }
 }
 
